@@ -1,0 +1,6 @@
+ultralytics==8.3.78
+deepface==0.0.84
+opencv-contrib-python==4.11.0.86
+matplotlib
+pandas
+Pillow
