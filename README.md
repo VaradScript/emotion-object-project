@@ -23,4 +23,6 @@ This project demonstrates a real-time system that detects **facial emotions** an
 ```bash
 pip install -r requirements.txt
 ```
+run the projecct 
+
 python gui.py
