@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
 import cv2
+import threading
 from deepface import DeepFace
 from ultralytics import YOLO
 import pandas as pd
@@ -26,6 +27,7 @@ class AnimatedBackground(tk.Label):
         self.delay = im.info.get('duration', 100)
         self.config(image=next(self.frames))
         self.after(self.delay, self.next_frame)
+
     def next_frame(self):
         self.config(image=next(self.frames))
         self.after(self.delay, self.next_frame)
@@ -37,11 +39,9 @@ class EmotionObjectApp:
         root.geometry("1024x720")
         root.configure(bg="#1a1a1a")
 
-        # Background
         bg = AnimatedBackground(root, "assets/loop.gif")
         bg.place(relwidth=1, relheight=1)
 
-        # Overlay UI panel
         panel = tk.Frame(root, bg="#242424", bd=2, relief="ridge")
         panel.place(relx=0.05, rely=0.05, relwidth=0.90, relheight=0.90)
 
@@ -53,19 +53,17 @@ class EmotionObjectApp:
         with open(self.csv_file, "w") as f:
             f.write("Timestamp,Detected Object,Emotion\n")
 
-        # Video display
         self.frame_label = tk.Label(panel, bg="#000")
-        self.frame_label.pack(pady=10, fill=tk.BOTH, expand=False, ipadx=2, ipady=2)
+        self.frame_label.pack(pady=10, fill=tk.BOTH, expand=False)
 
-        # Buttons styled
         btnframe = ttk.Frame(panel)
         btnframe.pack(pady=10)
         style = ttk.Style()
         style.configure("TButton", font=("Segoe UI", 11), padding=6)
         self.start_btn = ttk.Button(btnframe, text="▶ Start", command=self.start_detection)
-        self.stop_btn  = ttk.Button(btnframe, text="⏸ Stop",  command=self.stop_detection)
+        self.stop_btn = ttk.Button(btnframe, text="⏸ Stop", command=self.stop_detection)
         self.analysis_btn = ttk.Button(btnframe, text="📊 Analysis", command=self.show_analysis_popup)
-        self.exit_btn   = ttk.Button(btnframe, text="❌ Exit",   command=self.exit_app)
+        self.exit_btn = ttk.Button(btnframe, text="❌ Exit", command=self.exit_app)
         for i, btn in enumerate([self.start_btn, self.stop_btn, self.analysis_btn, self.exit_btn]):
             btn.grid(row=0, column=i, padx=8)
 
@@ -73,7 +71,7 @@ class EmotionObjectApp:
         if not self.running:
             self.cap = cv2.VideoCapture(0)
             self.running = True
-            self.update_frame()
+            threading.Thread(target=self.update_frame, daemon=True).start()
 
     def stop_detection(self):
         self.running = False
@@ -85,33 +83,44 @@ class EmotionObjectApp:
         self.root.destroy()
 
     def update_frame(self):
-        if self.running and self.cap:
+        while self.running and self.cap:
             ret, frame = self.cap.read()
-            if ret:
-                detected_object, emotion = "other", "neutral"
+            if not ret:
+                break
+
+            try:
                 results = self.model(frame)[0]
+                detected_object = "other"
+
                 for box in results.boxes:
                     cls = int(box.cls[0])
                     name = self.model.names[cls]
                     if name in ["cell phone", "book"]:
                         detected_object = name
-                        break
-                try:
-                    res = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
-                    emotion = res[0]['dominant_emotion']
-                except:
-                    pass
+                        x1, y1, x2, y2 = map(int, box.xyxy[0])
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 128, 0), 2)
+                        cv2.putText(frame, name, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 128, 0), 2)
+
+                faces = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
+                for face in faces:
+                    x, y, w, h = face['region'].values()
+                    emotion = face['dominant_emotion']
+                    confidence = face['emotion'][emotion]
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    cv2.putText(frame, f"{emotion} ({confidence:.1f}%)", (x, y - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
                 ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 with open(self.csv_file, "a") as f:
                     f.write(f"{ts},{detected_object},{emotion}\n")
-                cv2.putText(frame, f"{detected_object} – {emotion}", (20,30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                img = ImageTk.PhotoImage(Image.fromarray(rgb))
-                self.frame_label.imgtk = img
-                self.frame_label.config(image=img)
-        if self.running:
-            self.root.after(30, self.update_frame)
+
+            except Exception as e:
+                print("Detection error:", e)
+
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            img = ImageTk.PhotoImage(Image.fromarray(rgb))
+            self.frame_label.imgtk = img
+            self.frame_label.config(image=img)
 
     def show_analysis_popup(self):
         popup = tk.Toplevel(self.root)
