@@ -27,7 +27,8 @@ pip install -r requirements.txt
 ### Run the projecct 
 ```bash
 python gui.py
-```
+``````
+
 
 
 
