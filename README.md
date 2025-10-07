@@ -1,4 +1,4 @@
-# Real-Time Emotion Prediction Based on Object Interaction
+# Real-Time Emotion Prediction Based on Object Interaction.
 
 This project demonstrates a real-time system that detects **facial emotions** and recognizes **objects (phones, books, etc.)** to analyze emotional behavior based on object interaction.
 
@@ -28,6 +28,7 @@ pip install -r requirements.txt
 ```bash
 python gui.py
 ``````
+
 
 
 
