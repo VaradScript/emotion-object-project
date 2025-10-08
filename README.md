@@ -17,7 +17,7 @@ This project demonstrates a real-time system that detects **facial emotions** an
 ## Demo
 
 ![Demo Screenshot](assets/demo.gif)
-- only for the ui showcase
+- only for the ui showcase of project how works .
 
 ## Installation
 
@@ -28,6 +28,7 @@ pip install -r requirements.txt
 ```bash
 python gui.py
 ``````
+
 
 
 
